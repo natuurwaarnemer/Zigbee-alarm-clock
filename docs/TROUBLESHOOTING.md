@@ -2,6 +2,34 @@
 
 ## Display Problemen
 
+### Display blijft zwart / I2C device niet gevonden
+
+### Symptoom
+- ESPHome log toont: "I2C device not found at address 0x3C"
+- Display blijft compleet zwart
+- Geen foutmeldingen over display driver
+
+### Oorzaak
+Waarschijnlijk zijn de I2C pinnen verkeerd aangesloten. De XIAO ESP32-C6 heeft verwarrende pin labels!
+
+### Oplossing
+1. Controleer dat je de OLED hebt aangesloten op:
+   - SDA → **D4** (staat GPIO22 op het schema, NIET D6!)
+   - SCL → **D5** (staat GPIO23 op het schema, NIET D7!)
+2. De D-nummers op de pins komen NIET overeen met GPIO nummers
+3. Zie hardware/wiring-diagram.md voor de correcte aansluitingen
+
+### Test
+In ESPHome logs (na herstarten), moet je zien:
+```
+[I][i2c.arduino:071]: Results from i2c bus scan:
+[I][i2c.arduino:077]: Found i2c device at address 0x3C
+```
+
+Als je dit NIET ziet, zijn de I2C pinnen verkeerd aangesloten.
+
+---
+
 ### Display blijft zwart / toont niets
 
 **Mogelijke oorzaken en oplossingen:**
@@ -17,7 +45,7 @@
    - Als je `0x3D` ziet: verander het adres in de yaml
 
 3. **SDA/SCL verwisseld**
-   - GPIO6 = SDA, GPIO7 = SCL
+   - D4 (GPIO22) = SDA, D5 (GPIO23) = SCL
    - Controleer de kabels nog eens
 
 4. **Slechte verbinding**
@@ -68,8 +96,8 @@
 
 ### Buzzer maakt geen geluid
 
-1. **GPIO8 controleren**
-   - Verbinding buzzer + naar GPIO8, - naar GND
+1. **D8 (GPIO19) controleren**
+   - Verbinding buzzer + naar D8 (GPIO19), - naar GND
 
 2. **Actieve vs passieve buzzer**
    - Actieve buzzer: reageert op vaste spanning (werkt direct)
@@ -89,11 +117,11 @@
 ### Alarm stopt niet na knop indrukken
 
 1. **Knop verbinding controleren**
-   - GPIO9 naar knop Pin 1, GND naar knop Pin 2
+   - D9 (GPIO20) naar knop Pin 1, GND naar knop Pin 2
    - Meet met multimeter: kortsluiting wanneer knop ingedrukt?
 
 2. **Pull-up controleren**
-   - GPIO9 moet `HIGH` zijn in rust en `LOW` bij indrukken
+   - GPIO20 moet `HIGH` zijn in rust en `LOW` bij indrukken
    - Controleer met: Ontwikkeltools → Staten → zoek `binary_sensor.zigbee_wekker_wekker_knop`
 
 3. **Debounce problemen**

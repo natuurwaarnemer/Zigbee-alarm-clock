@@ -66,8 +66,8 @@ ota:
 
 # ------- I2C Bus (OLED display) -------
 i2c:
-  sda: GPIO6
-  scl: GPIO7
+  sda: GPIO22  # D4 on XIAO ESP32-C6
+  scl: GPIO23  # D5 on XIAO ESP32-C6
   scan: true
   id: bus_a
 
@@ -451,10 +451,10 @@ number:
 
 # ------- Sensors -------
 binary_sensor:
-  # Physical button (GPIO9, internal pull-up, active LOW)
+  # Physical button (GPIO20/D9, internal pull-up, active LOW)
   - platform: gpio
     pin:
-      number: GPIO9
+      number: GPIO20  # D9 on XIAO ESP32-C6
       mode:
         input: true
         pullup: true
@@ -519,7 +519,7 @@ text_sensor:
 # ------- PWM Output for Buzzer -------
 output:
   - platform: ledc
-    pin: GPIO8
+    pin: GPIO19  # D8 on XIAO ESP32-C6
     id: buzzer_pwm
     frequency: 1000 Hz
 

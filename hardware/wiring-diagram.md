@@ -5,19 +5,31 @@
 Alle verbindingen zijn 3.3V logica. De ESP32-C6 wordt gevoed via USB-C (5V).
 De interne 3.3V regelaar op het development board voorziet alle componenten.
 
+## ⚠️ Belangrijk: D-nummers vs GPIO-nummers
+
+De Seeed Studio XIAO ESP32-C6 heeft labels op de pinnen (D0-D10) die NIET overeenkomen met de GPIO nummers!
+
+**Voorbeeld:**
+- **D4** op het board = **GPIO22** in de code
+- **D5** op het board = **GPIO23** in de code
+- **D8** op het board = **GPIO19** in de code
+- **D9** op het board = **GPIO20** in de code
+
+In ESPHome configuratie gebruik je altijd de **GPIO nummers**, niet de D-nummers!
+
 ## Aansluittabel
 
-| Component | Pin | ESP32-C6 Pin | Draadkleur (advies) | Notities |
-|-----------|-----|--------------|---------------------|----------|
-| OLED Display | VCC | 3.3V | Rood | Nooit 5V! |
-| OLED Display | GND | GND | Zwart | |
-| OLED Display | SDA | GPIO6 | Blauw | I2C Data |
-| OLED Display | SCL | GPIO7 | Geel | I2C Clock |
-| Buzzer | + (VCC) | GPIO8 | Oranje | PWM output |
-| Buzzer | - (GND) | GND | Zwart | |
-| Knop | Pin 1 | GPIO9 | Groen | Interne pull-up actief |
-| Knop | Pin 2 | GND | Zwart | |
-| ESP32-C6 | USB-C | 5V adapter | - | Min. 1A voeding |
+| Component | Pin | XIAO ESP32-C6 Pin | GPIO | Notities |
+|-----------|-----|-------------------|------|----------|
+| OLED Display | VCC | 3.3V | - | Voeding |
+| OLED Display | GND | GND | - | Ground |
+| OLED Display | SDA | D4 | GPIO22 | I2C Data |
+| OLED Display | SCL | D5 | GPIO23 | I2C Clock |
+| Buzzer | + | D8 | GPIO19 | PWM output |
+| Buzzer | - | GND | - | Ground |
+| Button | Pin 1 | D9 | GPIO20 | Met interne pull-up |
+| Button | Pin 2 | GND | - | Ground |
+| ESP32-C6 | USB-C | 5V adapter | - | Voeding |
 
 ## ASCII Aansluitdiagram
 
@@ -26,10 +38,10 @@ De interne 3.3V regelaar op het development board voorziet alle componenten.
                     ┌─────────────────────────────┐
                3.3V ┤ 3V3                     GND ├─── GND (gemeenschappelijk)
                GND  ┤ GND                     5V  ├─── USB-C ingang
-             GPIO6  ┤ D4/GPIO6            GPIO0   ├
-             GPIO7  ┤ D5/GPIO7            GPIO1   ├
-             GPIO8  ┤ D6/GPIO8            GPIO2   ├
-             GPIO9  ┤ D7/GPIO9            GPIO3   ├
+             GPIO22 ┤ D4/GPIO22           GPIO0   ├
+             GPIO23 ┤ D5/GPIO23           GPIO1   ├
+             GPIO19 ┤ D8/GPIO19           GPIO2   ├
+             GPIO20 ┤ D9/GPIO20           GPIO3   ├
                     │                             │
                     └─────────────────────────────┘
                            │     │    │    │
@@ -43,12 +55,14 @@ De interne 3.3V regelaar op het development board voorziet alle componenten.
              │   OLED   │    │    Buzzer    │        │   Knop   │
              │ SSD1306  │    │  (Actief)    │        │ (Momenteel│
              │ 128x64   │    │              │        │ normaal   │
-             │ I2C 0x3C │    │   + aan GPIO8│        │  open)    │
-             │          │    │   - aan GND  │        │           │
-             │VCC → 3.3V│    └──────────────┘        │Pin1→GPIO9 │
-             │GND → GND │                            │Pin2→GND   │
-             │SDA→ GPIO6│                            └──────────┘
-             │SCL→ GPIO7│
+             │ I2C 0x3C │    │   + aan D8   │        │  open)    │
+             │          │    │   (GPIO19)   │        │           │
+             │VCC → 3.3V│    │   - aan GND  │        │Pin1→D9    │
+             │GND → GND │    └──────────────┘        │  (GPIO20) │
+             │SDA→ D4   │                            │Pin2→GND   │
+             │  (GPIO22)│                            └──────────┘
+             │SCL→ D5   │
+             │  (GPIO23)│
              └──────────┘
 ```
 
@@ -70,8 +84,8 @@ Typische pinout 1.3" OLED:
 |-------------|----------|-------|
 | GND | GND | Zwart |
 | VCC | **3.3V** (niet 5V!) | Rood |
-| SCL | GPIO7 | Geel |
-| SDA | GPIO6 | Blauw |
+| SCL | D5 (GPIO23) | Geel |
+| SDA | D4 (GPIO22) | Blauw |
 
 ⚠️ **Waarschuwing:** Sluit nooit 5V aan op de OLED VCC. Dit beschadigt het
 display permanent!
@@ -85,18 +99,18 @@ Een **passieve** buzzer heeft PWM signaal nodig (ook ondersteund).
 Buzzer aansluiting:
 ┌──────────┐
 │  BUZZER  │
-│   + (lang│───────── GPIO8
+│   + (lang│───────── D8 (GPIO19)
 │   - (kort│───────── GND
 └──────────┘
 ```
 
 | Buzzer Pin | ESP32-C6 |
 |------------|----------|
-| + (positief, langere pin) | GPIO8 |
+| + (positief, langere pin) | D8 (GPIO19) |
 | - (negatief, kortere pin) | GND |
 
 💡 **Tip:** De meeste buzzer modules hebben een `+` markering. Verbind die
-met GPIO8. Test zonder behuizing voor je alles samenbouwt.
+met D8 (GPIO19). Test zonder behuizing voor je alles samenbouwt.
 
 ### 3. Drukknop
 
@@ -106,12 +120,12 @@ Een momenteel normaal-open (NO) drukknop met 2 aansluitingen:
 Knop aansluiting (2-draads):
 ┌──────────┐
 │   KNOP   │
-│  Pin 1   │───── GPIO9 (interne pull-up)
+│  Pin 1   │───── D9 (GPIO20, interne pull-up)
 │  Pin 2   │───── GND
 └──────────┘
 ```
 
-De interne pull-up weerstand is ingeschakeld in software. De knop trekt GPIO9
+De interne pull-up weerstand is ingeschakeld in software. De knop trekt GPIO20
 naar GND bij indrukken.
 
 ### 4. Voeding
@@ -164,7 +178,7 @@ ESP32-C6 USB-C poort
 
 1. **OLED op 3.3V**: Sluit nooit 5V aan op de OLED VCC-pin.
 2. **GPIO max stroom**: Max 12 mA per GPIO-pin. Buzzer ~30 mA kan direct worden
-   aangesloten via GPIO8 (LEDC PWM regelt de duty cycle).
+   aangesloten via D8/GPIO19 (LEDC PWM regelt de duty cycle).
 3. **ESD bescherming**: Raak de GPIO-pinnen niet aan met statisch geladen vingers.
 4. **Test voor behuizing**: Test alle verbindingen voor je alles in de behuizing bouwt.
 5. **Voedingspolariteit**: USB-C is polariteitsbestendig.
