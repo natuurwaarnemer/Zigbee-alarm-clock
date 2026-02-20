@@ -1,0 +1,263 @@
+# Home Assistant Automatiseringen voor Zigbee Wekker
+# Voeg dit toe aan automations.yaml of importeer via de UI
+#
+# OPMERKING: Pas entity_id's aan aan je eigen setup.
+# De ESPHome entiteiten beginnen met 'zigbee_wekker_' (friendly name).
+# Controleer de exacte naam in Instellingen → Apparaten & Services → ESPHome.
+
+# ============================================================
+# Automatisering 1: Sync alarm tijden van HA helpers naar de wekker
+# Wordt getriggerd als een input_datetime helper verandert
+# ============================================================
+- alias: "Wekker - Sync Alarm Tijden naar Apparaat"
+  id: wekker_sync_alarm_tijden
+  description: "Synchroniseer alarm tijden van HA helpers naar de wekker"
+  trigger:
+    - platform: state
+      entity_id:
+        - input_datetime.alarm_maandag
+        - input_datetime.alarm_dinsdag
+        - input_datetime.alarm_woensdag
+        - input_datetime.alarm_donderdag
+        - input_datetime.alarm_vrijdag
+        - input_datetime.alarm_zaterdag
+        - input_datetime.alarm_zondag
+  action:
+    # Sync maandag (dag 2 in ESPHome: 1=Ma..7=Zo)
+    - service: number.set_value
+      target:
+        entity_id: number.zigbee_wekker_alarm_maandag_uur
+      data:
+        value: "{{ state_attr('input_datetime.alarm_maandag', 'hour') }}"
+    - service: number.set_value
+      target:
+        entity_id: number.zigbee_wekker_alarm_maandag_minuut
+      data:
+        value: "{{ state_attr('input_datetime.alarm_maandag', 'minute') }}"
+    # Sync dinsdag
+    - service: number.set_value
+      target:
+        entity_id: number.zigbee_wekker_alarm_dinsdag_uur
+      data:
+        value: "{{ state_attr('input_datetime.alarm_dinsdag', 'hour') }}"
+    - service: number.set_value
+      target:
+        entity_id: number.zigbee_wekker_alarm_dinsdag_minuut
+      data:
+        value: "{{ state_attr('input_datetime.alarm_dinsdag', 'minute') }}"
+    # Sync woensdag
+    - service: number.set_value
+      target:
+        entity_id: number.zigbee_wekker_alarm_woensdag_uur
+      data:
+        value: "{{ state_attr('input_datetime.alarm_woensdag', 'hour') }}"
+    - service: number.set_value
+      target:
+        entity_id: number.zigbee_wekker_alarm_woensdag_minuut
+      data:
+        value: "{{ state_attr('input_datetime.alarm_woensdag', 'minute') }}"
+    # Sync donderdag
+    - service: number.set_value
+      target:
+        entity_id: number.zigbee_wekker_alarm_donderdag_uur
+      data:
+        value: "{{ state_attr('input_datetime.alarm_donderdag', 'hour') }}"
+    - service: number.set_value
+      target:
+        entity_id: number.zigbee_wekker_alarm_donderdag_minuut
+      data:
+        value: "{{ state_attr('input_datetime.alarm_donderdag', 'minute') }}"
+    # Sync vrijdag
+    - service: number.set_value
+      target:
+        entity_id: number.zigbee_wekker_alarm_vrijdag_uur
+      data:
+        value: "{{ state_attr('input_datetime.alarm_vrijdag', 'hour') }}"
+    - service: number.set_value
+      target:
+        entity_id: number.zigbee_wekker_alarm_vrijdag_minuut
+      data:
+        value: "{{ state_attr('input_datetime.alarm_vrijdag', 'minute') }}"
+    # Sync zaterdag
+    - service: number.set_value
+      target:
+        entity_id: number.zigbee_wekker_alarm_zaterdag_uur
+      data:
+        value: "{{ state_attr('input_datetime.alarm_zaterdag', 'hour') }}"
+    - service: number.set_value
+      target:
+        entity_id: number.zigbee_wekker_alarm_zaterdag_minuut
+      data:
+        value: "{{ state_attr('input_datetime.alarm_zaterdag', 'minute') }}"
+    # Sync zondag
+    - service: number.set_value
+      target:
+        entity_id: number.zigbee_wekker_alarm_zondag_uur
+      data:
+        value: "{{ state_attr('input_datetime.alarm_zondag', 'hour') }}"
+    - service: number.set_value
+      target:
+        entity_id: number.zigbee_wekker_alarm_zondag_minuut
+      data:
+        value: "{{ state_attr('input_datetime.alarm_zondag', 'minute') }}"
+  mode: queued
+
+# ============================================================
+# Automatisering 2: Sync alarm aan/uit schakelaars naar de wekker
+# ============================================================
+- alias: "Wekker - Sync Alarm Schakelaars naar Apparaat"
+  id: wekker_sync_alarm_schakelaars
+  description: "Synchroniseer welke dagen het alarm aan staat naar de wekker"
+  trigger:
+    - platform: state
+      entity_id:
+        - input_boolean.alarm_maandag_aan
+        - input_boolean.alarm_dinsdag_aan
+        - input_boolean.alarm_woensdag_aan
+        - input_boolean.alarm_donderdag_aan
+        - input_boolean.alarm_vrijdag_aan
+        - input_boolean.alarm_zaterdag_aan
+        - input_boolean.alarm_zondag_aan
+        - input_boolean.alarm_hoofdschakelaar
+  action:
+    # Sync alle dag-schakelaars
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: input_boolean.alarm_maandag_aan
+              state: "on"
+          sequence:
+            - service: switch.turn_on
+              target:
+                entity_id: switch.zigbee_wekker_alarm_maandag_aan
+        - conditions:
+            - condition: state
+              entity_id: input_boolean.alarm_maandag_aan
+              state: "off"
+          sequence:
+            - service: switch.turn_off
+              target:
+                entity_id: switch.zigbee_wekker_alarm_maandag_aan
+
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: input_boolean.alarm_dinsdag_aan
+              state: "on"
+          sequence:
+            - service: switch.turn_on
+              target:
+                entity_id: switch.zigbee_wekker_alarm_dinsdag_aan
+        - conditions:
+            - condition: state
+              entity_id: input_boolean.alarm_dinsdag_aan
+              state: "off"
+          sequence:
+            - service: switch.turn_off
+              target:
+                entity_id: switch.zigbee_wekker_alarm_dinsdag_aan
+
+    # Herhaal voor andere dagen (woensdag t/m zondag)...
+    # Hoofdschakelaar
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: input_boolean.alarm_hoofdschakelaar
+              state: "on"
+          sequence:
+            - service: switch.turn_on
+              target:
+                entity_id: switch.zigbee_wekker_alarm_hoofdschakelaar
+        - conditions:
+            - condition: state
+              entity_id: input_boolean.alarm_hoofdschakelaar
+              state: "off"
+          sequence:
+            - service: switch.turn_off
+              target:
+                entity_id: switch.zigbee_wekker_alarm_hoofdschakelaar
+  mode: queued
+
+# ============================================================
+# Automatisering 3: Licht aan als alarm knop wordt ingedrukt
+# Pas 'light.slaapkamer' aan naar je eigen lamp entiteit
+# ============================================================
+- alias: "Wekker - Licht aan bij knop indrukken"
+  id: wekker_licht_aan_knop
+  description: "Zet slaapkamerlamp aan als de wekker knop wordt ingedrukt"
+  trigger:
+    - platform: event
+      event_type: esphome.button_pressed
+      event_data:
+        device_id: zigbee_alarm_clock
+  condition:
+    - condition: time
+      after: "05:00:00"
+      before: "12:00:00"
+  action:
+    - service: light.turn_on
+      target:
+        entity_id: light.slaapkamer  # AANPASSEN naar jouw lamp
+      data:
+        brightness_pct: 50
+        transition: 2
+        color_temp: 4000  # Warm wit (Kelvin)
+  mode: single
+
+# ============================================================
+# Automatisering 4: Notificatie bij alarm (optioneel)
+# ============================================================
+- alias: "Wekker - Notificatie bij alarm"
+  id: wekker_notificatie_alarm
+  description: "Stuur pushbericht als het alarm afgaat"
+  trigger:
+    - platform: event
+      event_type: esphome.alarm_triggered
+      event_data:
+        device_id: zigbee_alarm_clock
+  action:
+    - service: notify.mobile_app  # AANPASSEN: vervang door jouw app naam
+      data:
+        title: "⏰ Wekker"
+        message: "Je wekker is afgegaan!"
+        data:
+          actions:
+            - action: STOP_ALARM
+              title: "Alarm stoppen"
+  mode: single
+
+# ============================================================
+# Automatisering 5: Vakantie modus - alle alarmen uitschakelen
+# ============================================================
+- alias: "Wekker - Vakantie modus activeren"
+  id: wekker_vakantie_modus
+  description: "Schakel alle alarmen uit bij vakantie modus"
+  trigger:
+    - platform: state
+      entity_id: input_boolean.alarm_vakantie_modus
+      to: "on"
+  action:
+    - service: switch.turn_off
+      target:
+        entity_id: switch.zigbee_wekker_alarm_hoofdschakelaar
+    - service: persistent_notification.create
+      data:
+        message: "Vakantie modus actief - alle alarmen uitgeschakeld"
+        title: "Wekker"
+  mode: single
+
+# ============================================================
+# Automatisering 6: Vakantie modus deactiveren
+# ============================================================
+- alias: "Wekker - Vakantie modus deactiveren"
+  id: wekker_vakantie_modus_uit
+  description: "Schakel alarmen weer in na vakantie modus"
+  trigger:
+    - platform: state
+      entity_id: input_boolean.alarm_vakantie_modus
+      to: "off"
+  action:
+    - service: switch.turn_on
+      target:
+        entity_id: switch.zigbee_wekker_alarm_hoofdschakelaar
+  mode: single
