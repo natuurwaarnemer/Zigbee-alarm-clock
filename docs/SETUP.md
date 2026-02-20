@@ -31,21 +31,33 @@ Sluit alle componenten aan **voor** je de voeding aansluit.
 
 Volg de tabel exact op. **Let op de 3.3V voor het OLED display - gebruik nooit 5V!**
 
+### ⚠️ LET OP: Pin nummering XIAO ESP32-C6
+
+De XIAO ESP32-C6 heeft **D-nummers** op de pinnen staan (D0, D1, D2, etc.), maar deze komen **NIET** overeen met GPIO nummers!
+
+**Controleer altijd de pinout diagram:**
+- Sluit de OLED SDA aan op **D4** (dit is GPIO22)
+- Sluit de OLED SCL aan op **D5** (dit is GPIO23)
+- Sluit de Buzzer aan op **D8** (dit is GPIO19)
+- Sluit de Button aan op **D9** (dit is GPIO20)
+
+De ESPHome configuratie gebruikt de correcte GPIO nummers automatisch.
+
 | OLED Pin | ESP32-C6 Pin |
 |----------|--------------|
 | VCC | 3.3V |
 | GND | GND |
-| SDA | GPIO6 |
-| SCL | GPIO7 |
+| SDA | D4 (GPIO22) |
+| SCL | D5 (GPIO23) |
 
 | Buzzer Pin | ESP32-C6 Pin |
 |------------|--------------|
-| + (lang) | GPIO8 |
+| + (lang) | D8 (GPIO19) |
 | - (kort) | GND |
 
 | Knop Pin | ESP32-C6 Pin |
 |----------|--------------|
-| Pin 1 | GPIO9 |
+| Pin 1 | D9 (GPIO20) |
 | Pin 2 | GND |
 
 > 📸 [Foto placeholder: aansluitingen close-up]
@@ -55,9 +67,9 @@ Volg de tabel exact op. **Let op de 3.3V voor het OLED display - gebruik nooit 5
 Controleer voor je de voeding aansluit:
 - [ ] OLED VCC verbonden met 3.3V (niet 5V!)
 - [ ] Alle GND draden verbonden
-- [ ] SDA op GPIO6, SCL op GPIO7
-- [ ] Buzzer + op GPIO8
-- [ ] Knop op GPIO9 en GND
+- [ ] SDA op D4 (GPIO22), SCL op D5 (GPIO23)
+- [ ] Buzzer + op D8 (GPIO19)
+- [ ] Knop op D9 (GPIO20) en GND
 
 ---
 
