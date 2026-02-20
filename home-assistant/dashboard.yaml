@@ -1,0 +1,111 @@
+# Zigbee Wekker - Dashboard Lovelace Kaart
+# Kopieer dit naar een nieuw dashboard of voeg toe als handmatige kaart
+# Pas entity_id's aan als je een andere friendly name gebruikt
+
+type: vertical-stack
+cards:
+  # ---- Hoofdschakelaar ----
+  - type: entities
+    title: 🔔 Wekker Hoofdinstellingen
+    show_header_toggle: false
+    entities:
+      - entity: switch.zigbee_wekker_alarm_hoofdschakelaar
+        name: Hoofdschakelaar
+        icon: mdi:alarm
+      - entity: input_boolean.alarm_vakantie_modus
+        name: Vakantie Modus
+        icon: mdi:beach
+      - entity: input_boolean.alarm_werkdag_alleen
+        name: Alleen Werkdagen
+        icon: mdi:briefcase-clock
+
+  # ---- Alarm tijden per dag ----
+  - type: entities
+    title: ⏰ Alarm Tijden
+    show_header_toggle: false
+    entities:
+      - type: divider
+      - entity: switch.zigbee_wekker_alarm_maandag_aan
+        name: Maandag
+        secondary_info: last-changed
+      - entity: number.zigbee_wekker_alarm_maandag_uur
+        name: "  → Uur"
+      - entity: number.zigbee_wekker_alarm_maandag_minuut
+        name: "  → Minuut"
+      - type: divider
+      - entity: switch.zigbee_wekker_alarm_dinsdag_aan
+        name: Dinsdag
+      - entity: number.zigbee_wekker_alarm_dinsdag_uur
+        name: "  → Uur"
+      - entity: number.zigbee_wekker_alarm_dinsdag_minuut
+        name: "  → Minuut"
+      - type: divider
+      - entity: switch.zigbee_wekker_alarm_woensdag_aan
+        name: Woensdag
+      - entity: number.zigbee_wekker_alarm_woensdag_uur
+        name: "  → Uur"
+      - entity: number.zigbee_wekker_alarm_woensdag_minuut
+        name: "  → Minuut"
+      - type: divider
+      - entity: switch.zigbee_wekker_alarm_donderdag_aan
+        name: Donderdag
+      - entity: number.zigbee_wekker_alarm_donderdag_uur
+        name: "  → Uur"
+      - entity: number.zigbee_wekker_alarm_donderdag_minuut
+        name: "  → Minuut"
+      - type: divider
+      - entity: switch.zigbee_wekker_alarm_vrijdag_aan
+        name: Vrijdag
+      - entity: number.zigbee_wekker_alarm_vrijdag_uur
+        name: "  → Uur"
+      - entity: number.zigbee_wekker_alarm_vrijdag_minuut
+        name: "  → Minuut"
+      - type: divider
+      - entity: switch.zigbee_wekker_alarm_zaterdag_aan
+        name: Zaterdag
+      - entity: number.zigbee_wekker_alarm_zaterdag_uur
+        name: "  → Uur"
+      - entity: number.zigbee_wekker_alarm_zaterdag_minuut
+        name: "  → Minuut"
+      - type: divider
+      - entity: switch.zigbee_wekker_alarm_zondag_aan
+        name: Zondag
+      - entity: number.zigbee_wekker_alarm_zondag_uur
+        name: "  → Uur"
+      - entity: number.zigbee_wekker_alarm_zondag_minuut
+        name: "  → Minuut"
+
+  # ---- Status ----
+  - type: entities
+    title: 📊 Status
+    show_header_toggle: false
+    entities:
+      - entity: sensor.zigbee_wekker_volgend_alarm
+        name: Volgend Alarm
+        icon: mdi:alarm-check
+      - entity: binary_sensor.zigbee_wekker_wifi_verbonden
+        name: Verbinding Status  # WiFi (ESPHome) or Zigbee connection status
+        icon: mdi:wifi
+      - entity: sensor.zigbee_wekker_wifi_signaalsterkte
+        name: WiFi Signaal
+        icon: mdi:wifi-strength-2
+      - entity: sensor.zigbee_wekker_uptime
+        name: Uptime
+        icon: mdi:clock-check
+
+  # ---- Quick actions ----
+  - type: button
+    name: Test Alarm
+    icon: mdi:bell-ring
+    tap_action:
+      action: call-service
+      service: esphome.zigbee_wekker_trigger_alarm
+    show_name: true
+
+  - type: button
+    name: Stop Alarm
+    icon: mdi:bell-off
+    tap_action:
+      action: call-service
+      service: esphome.zigbee_wekker_stop_alarm
+    show_name: true

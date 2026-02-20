@@ -1,0 +1,93 @@
+# Home Assistant Helpers voor Zigbee Wekker
+# Voeg dit toe aan je configuration.yaml (of gebruik !include)
+#
+# OPMERKING: Als je de ESPHome integratie gebruikt, zijn de number/switch
+# entiteiten al beschikbaar via de wekker zelf. Deze helpers zijn handig
+# als alternatieve invoer of als je de Zigbee (PlatformIO) versie gebruikt.
+
+# ---- Alarm tijden per dag ----
+input_datetime:
+  alarm_maandag:
+    name: Alarm Maandag
+    has_time: true
+    has_date: false
+    icon: mdi:alarm
+
+  alarm_dinsdag:
+    name: Alarm Dinsdag
+    has_time: true
+    has_date: false
+    icon: mdi:alarm
+
+  alarm_woensdag:
+    name: Alarm Woensdag
+    has_time: true
+    has_date: false
+    icon: mdi:alarm
+
+  alarm_donderdag:
+    name: Alarm Donderdag
+    has_time: true
+    has_date: false
+    icon: mdi:alarm
+
+  alarm_vrijdag:
+    name: Alarm Vrijdag
+    has_time: true
+    has_date: false
+    icon: mdi:alarm
+
+  alarm_zaterdag:
+    name: Alarm Zaterdag
+    has_time: true
+    has_date: false
+    icon: mdi:alarm
+
+  alarm_zondag:
+    name: Alarm Zondag
+    has_time: true
+    has_date: false
+    icon: mdi:alarm
+
+# ---- Alarm aan/uit per dag ----
+input_boolean:
+  alarm_maandag_aan:
+    name: Alarm Maandag Aan
+    icon: mdi:alarm-check
+
+  alarm_dinsdag_aan:
+    name: Alarm Dinsdag Aan
+    icon: mdi:alarm-check
+
+  alarm_woensdag_aan:
+    name: Alarm Woensdag Aan
+    icon: mdi:alarm-check
+
+  alarm_donderdag_aan:
+    name: Alarm Donderdag Aan
+    icon: mdi:alarm-check
+
+  alarm_vrijdag_aan:
+    name: Alarm Vrijdag Aan
+    icon: mdi:alarm-check
+
+  alarm_zaterdag_aan:
+    name: Alarm Zaterdag Aan
+    icon: mdi:alarm-check
+
+  alarm_zondag_aan:
+    name: Alarm Zondag Aan
+    icon: mdi:alarm-check
+
+  alarm_hoofdschakelaar:
+    name: Alarm Hoofdschakelaar
+    icon: mdi:alarm
+
+# ---- Vakantie / Weekend modus ----
+  alarm_vakantie_modus:
+    name: Alarm Vakantie Modus
+    icon: mdi:beach
+
+  alarm_werkdag_alleen:
+    name: Alarm Alleen Werkdagen
+    icon: mdi:briefcase-clock

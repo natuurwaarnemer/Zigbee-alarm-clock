@@ -1,0 +1,681 @@
+# ============================================================
+# Zigbee Alarm Clock - ESPHome Configuration
+# Hardware: ESP32-C6 (Seeed Studio) + SSD1306 OLED + Piezo Buzzer + Button
+# Primary connectivity: WiFi (Zigbee upgrade path in platformio/)
+# ============================================================
+
+# ------- Basic device info -------
+esphome:
+  name: zigbee-alarm-clock
+  friendly_name: "Zigbee Wekker"
+  on_boot:
+    priority: 600
+    then:
+      - script.execute: display_startup
+      - lambda: |-
+          id(alarm_active) = false;
+          id(next_alarm_str) = std::string("--:--");
+
+esp32:
+  board: esp32-c6-devkitc-1
+  framework:
+    type: esp-idf
+    version: recommended
+
+# ------- Logger -------
+logger:
+  level: INFO
+  logs:
+    ssd1306_base: WARNING
+    i2c: WARNING
+
+# ------- WiFi -------
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  # Static IP (optional, improves boot time)
+  # manual_ip:
+  #   static_ip: 192.168.1.100
+  #   gateway: 192.168.1.1
+  #   subnet: 255.255.255.0
+  ap:
+    # Fallback hotspot when WiFi is unavailable
+    ssid: "Wekker Fallback"
+    password: "wekker123"
+
+captive_portal:
+
+# ------- Home Assistant API -------
+api:
+  encryption:
+    key: !secret api_encryption_key
+  services:
+    # Service to trigger alarm from HA (for testing)
+    - service: trigger_alarm
+      then:
+        - script.execute: alarm_start
+    # Service to stop alarm from HA
+    - service: stop_alarm
+      then:
+        - script.execute: alarm_stop
+
+# ------- OTA Updates -------
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+# ------- I2C Bus (OLED display) -------
+i2c:
+  sda: GPIO6
+  scl: GPIO7
+  scan: true
+  id: bus_a
+
+# ------- Fonts -------
+font:
+  # Large font for time display (HH:MM)
+  - file: "gfonts://Roboto"
+    id: font_time
+    size: 42
+    glyphs: "0123456789:"
+
+  # Medium font for date and alarm
+  - file: "gfonts://Roboto"
+    id: font_medium
+    size: 16
+    glyphs: "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ :.-"
+
+  # Small font for status icons/labels
+  - file: "gfonts://Roboto"
+    id: font_small
+    size: 12
+    glyphs: "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ :.-!?"
+
+# ------- OLED Display (SSD1306, 1.3", 128x64, address 0x3C) -------
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    address: 0x3C
+    id: oled
+    update_interval: 1s
+    lambda: |-
+      // Determine display brightness based on time (dim at night 22:00-07:00)
+      auto now = id(homeassistant_time).now();
+      bool night_mode = (now.hour >= 22 || now.hour < 7);
+      it.set_contrast(night_mode ? 10 : 255);
+
+      if (id(alarm_active)) {
+        // --- ALARM ACTIVE: blink display ---
+        static bool blink_state = false;
+        blink_state = !blink_state;
+        if (blink_state) {
+          it.fill(COLOR_ON);
+          it.print(64, 20, id(font_time), COLOR_OFF, TextAlign::CENTER, "ALARM");
+          it.print(64, 50, id(font_medium), COLOR_OFF, TextAlign::CENTER, "Druk op knop!");
+        } else {
+          it.clear();
+          it.print(64, 20, id(font_time), COLOR_ON, TextAlign::CENTER, "ALARM");
+          it.print(64, 50, id(font_medium), COLOR_ON, TextAlign::CENTER, "Druk op knop!");
+        }
+        return;
+      }
+
+      it.clear();
+
+      // --- Time (large, centered) ---
+      if (now.is_valid()) {
+        char time_str[6];
+        snprintf(time_str, sizeof(time_str), "%02d:%02d", now.hour, now.minute);
+        it.print(64, 0, id(font_time), TextAlign::TOP_CENTER, time_str);
+      } else {
+        it.print(64, 0, id(font_time), TextAlign::TOP_CENTER, "--:--");
+      }
+
+      // --- Date and day of week ---
+      if (now.is_valid()) {
+        const char* days[] = {"Zo", "Ma", "Di", "Wo", "Do", "Vr", "Za"};
+        char date_str[20];
+        snprintf(date_str, sizeof(date_str), "%s %02d-%02d",
+                 days[now.day_of_week - 1], now.day_of_month, now.month);
+        it.print(0, 46, id(font_small), date_str);
+      }
+
+      // --- Next alarm ---
+      it.printf(0, 57, id(font_small), "A:%s", id(next_alarm_str).c_str());
+
+      // --- WiFi status icon (top right) ---
+      if (id(wifi_connected).state) {
+        it.print(128, 0, id(font_small), TextAlign::TOP_RIGHT, "W");
+      } else {
+        it.print(128, 0, id(font_small), TextAlign::TOP_RIGHT, "!");
+      }
+
+      // --- Master alarm icon (top right, below wifi) ---
+      if (id(alarm_master).state) {
+        it.print(128, 12, id(font_small), TextAlign::TOP_RIGHT, "ON");
+      } else {
+        it.print(128, 12, id(font_small), TextAlign::TOP_RIGHT, "off");
+      }
+
+# ------- Time -------
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+    timezone: "Europe/Amsterdam"
+    on_time_sync:
+      - logger.log: "Tijd gesynchroniseerd met Home Assistant"
+    on_time:
+      # Check alarms every minute at second 0
+      - seconds: 0
+        minutes: /1
+        then:
+          - script.execute: check_alarms
+      # Update next alarm display every 5 minutes
+      - seconds: 0
+        minutes: /5
+        then:
+          - script.execute: update_next_alarm
+
+  # Fallback NTP if HA is unavailable
+  - platform: sntp
+    id: sntp_time
+    timezone: "Europe/Amsterdam"
+    servers:
+      - 0.nl.pool.ntp.org
+      - 1.nl.pool.ntp.org
+      - pool.ntp.org
+
+# ------- Globals -------
+globals:
+  - id: alarm_active
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+
+  - id: next_alarm_str
+    type: std::string
+    restore_value: false
+    initial_value: '"--:--"'
+
+  # Tracks buzzer volume step for fade-in effect
+  - id: buzzer_step
+    type: int
+    restore_value: false
+    initial_value: '0'
+
+# ------- Alarm Master Switch -------
+switch:
+  - platform: template
+    name: "Alarm Hoofdschakelaar"
+    id: alarm_master
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    icon: "mdi:alarm"
+    on_turn_off:
+      - script.execute: alarm_stop
+
+  # Per-day alarm enable switches (exposed to HA)
+  - platform: template
+    name: "Alarm Maandag Aan"
+    id: alarm_mon_en
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    icon: "mdi:calendar-today"
+
+  - platform: template
+    name: "Alarm Dinsdag Aan"
+    id: alarm_tue_en
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    icon: "mdi:calendar-today"
+
+  - platform: template
+    name: "Alarm Woensdag Aan"
+    id: alarm_wed_en
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    icon: "mdi:calendar-today"
+
+  - platform: template
+    name: "Alarm Donderdag Aan"
+    id: alarm_thu_en
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    icon: "mdi:calendar-today"
+
+  - platform: template
+    name: "Alarm Vrijdag Aan"
+    id: alarm_fri_en
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    icon: "mdi:calendar-today"
+
+  - platform: template
+    name: "Alarm Zaterdag Aan"
+    id: alarm_sat_en
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    icon: "mdi:calendar-today"
+
+  - platform: template
+    name: "Alarm Zondag Aan"
+    id: alarm_sun_en
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    icon: "mdi:calendar-today"
+
+# ------- Alarm Time Numbers (stored as minutes since midnight) -------
+# Range: 0-1439 (0:00 to 23:59)
+number:
+  - platform: template
+    name: "Alarm Maandag Uur"
+    id: alarm_mon_hour
+    min_value: 0
+    max_value: 23
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 7
+    mode: box
+    unit_of_measurement: "u"
+    icon: "mdi:clock-outline"
+
+  - platform: template
+    name: "Alarm Maandag Minuut"
+    id: alarm_mon_min
+    min_value: 0
+    max_value: 59
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 0
+    mode: box
+    unit_of_measurement: "min"
+    icon: "mdi:clock-outline"
+
+  - platform: template
+    name: "Alarm Dinsdag Uur"
+    id: alarm_tue_hour
+    min_value: 0
+    max_value: 23
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 7
+    mode: box
+    unit_of_measurement: "u"
+    icon: "mdi:clock-outline"
+
+  - platform: template
+    name: "Alarm Dinsdag Minuut"
+    id: alarm_tue_min
+    min_value: 0
+    max_value: 59
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 0
+    mode: box
+    unit_of_measurement: "min"
+    icon: "mdi:clock-outline"
+
+  - platform: template
+    name: "Alarm Woensdag Uur"
+    id: alarm_wed_hour
+    min_value: 0
+    max_value: 23
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 7
+    mode: box
+    unit_of_measurement: "u"
+    icon: "mdi:clock-outline"
+
+  - platform: template
+    name: "Alarm Woensdag Minuut"
+    id: alarm_wed_min
+    min_value: 0
+    max_value: 59
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 0
+    mode: box
+    unit_of_measurement: "min"
+    icon: "mdi:clock-outline"
+
+  - platform: template
+    name: "Alarm Donderdag Uur"
+    id: alarm_thu_hour
+    min_value: 0
+    max_value: 23
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 7
+    mode: box
+    unit_of_measurement: "u"
+    icon: "mdi:clock-outline"
+
+  - platform: template
+    name: "Alarm Donderdag Minuut"
+    id: alarm_thu_min
+    min_value: 0
+    max_value: 59
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 0
+    mode: box
+    unit_of_measurement: "min"
+    icon: "mdi:clock-outline"
+
+  - platform: template
+    name: "Alarm Vrijdag Uur"
+    id: alarm_fri_hour
+    min_value: 0
+    max_value: 23
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 7
+    mode: box
+    unit_of_measurement: "u"
+    icon: "mdi:clock-outline"
+
+  - platform: template
+    name: "Alarm Vrijdag Minuut"
+    id: alarm_fri_min
+    min_value: 0
+    max_value: 59
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 0
+    mode: box
+    unit_of_measurement: "min"
+    icon: "mdi:clock-outline"
+
+  - platform: template
+    name: "Alarm Zaterdag Uur"
+    id: alarm_sat_hour
+    min_value: 0
+    max_value: 23
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 9
+    mode: box
+    unit_of_measurement: "u"
+    icon: "mdi:clock-outline"
+
+  - platform: template
+    name: "Alarm Zaterdag Minuut"
+    id: alarm_sat_min
+    min_value: 0
+    max_value: 59
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 0
+    mode: box
+    unit_of_measurement: "min"
+    icon: "mdi:clock-outline"
+
+  - platform: template
+    name: "Alarm Zondag Uur"
+    id: alarm_sun_hour
+    min_value: 0
+    max_value: 23
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 9
+    mode: box
+    unit_of_measurement: "u"
+    icon: "mdi:clock-outline"
+
+  - platform: template
+    name: "Alarm Zondag Minuut"
+    id: alarm_sun_min
+    min_value: 0
+    max_value: 59
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 0
+    mode: box
+    unit_of_measurement: "min"
+    icon: "mdi:clock-outline"
+
+# ------- Sensors -------
+binary_sensor:
+  # Physical button (GPIO9, internal pull-up, active LOW)
+  - platform: gpio
+    pin:
+      number: GPIO9
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    name: "Wekker Knop"
+    id: alarm_button
+    filters:
+      - delayed_on: 20ms   # debounce
+    on_press:
+      then:
+        - if:
+            condition:
+              lambda: 'return id(alarm_active);'
+            then:
+              - script.execute: alarm_stop
+              - homeassistant.event:
+                  event: esphome.button_pressed
+                  data:
+                    device_id: zigbee_alarm_clock
+                    action: stop_alarm
+            else:
+              - homeassistant.event:
+                  event: esphome.button_pressed
+                  data:
+                    device_id: zigbee_alarm_clock
+                    action: manual_press
+
+  # WiFi connected status
+  - platform: template
+    name: "WiFi Verbonden"
+    id: wifi_connected
+    lambda: 'return id(wifi_signal_dbm).state > -100;'
+
+# ------- WiFi Signal Sensor -------
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signaalsterkte"
+    id: wifi_signal_dbm
+    update_interval: 60s
+    unit_of_measurement: "dBm"
+
+  # Uptime sensor
+  - platform: uptime
+    name: "Uptime"
+    update_interval: 60s
+
+# ------- Text Sensor (next alarm display) -------
+text_sensor:
+  - platform: template
+    name: "Volgend Alarm"
+    id: next_alarm_sensor
+    icon: "mdi:alarm"
+    lambda: 'return id(next_alarm_str);'
+    update_interval: 60s
+
+  - platform: wifi_info
+    ip_address:
+      name: "IP Adres"
+    ssid:
+      name: "WiFi SSID"
+
+# ------- PWM Output for Buzzer -------
+output:
+  - platform: ledc
+    pin: GPIO8
+    id: buzzer_pwm
+    frequency: 1000 Hz
+
+# ------- Buzzer as Tone Player -------
+rtttl:
+  output: buzzer_pwm
+  id: buzzer_player
+
+# ------- Scripts -------
+script:
+  # Display startup animation
+  - id: display_startup
+    then:
+      - lambda: |-
+          id(oled).clear();
+      - delay: 500ms
+
+  # Check if any alarm should trigger right now
+  - id: check_alarms
+    then:
+      - lambda: |-
+          if (!id(alarm_master).state) return;
+          if (id(alarm_active)) return;
+
+          auto now = id(homeassistant_time).now();
+          if (!now.is_valid()) return;
+
+          // day_of_week: 1=Sun, 2=Mon, 3=Tue, 4=Wed, 5=Thu, 6=Fri, 7=Sat
+          int dow = now.day_of_week;
+          int h = now.hour;
+          int m = now.minute;
+
+          bool should_trigger = false;
+
+          // Check each day's alarm
+          auto check = [&](int alarm_h, int alarm_m, bool enabled, int day) -> bool {
+            return enabled && (dow == day) && (h == (int)alarm_h) && (m == (int)alarm_m);
+          };
+
+          if (check(id(alarm_mon_hour).state, id(alarm_mon_min).state, id(alarm_mon_en).state, 2)) should_trigger = true;
+          if (check(id(alarm_tue_hour).state, id(alarm_tue_min).state, id(alarm_tue_en).state, 3)) should_trigger = true;
+          if (check(id(alarm_wed_hour).state, id(alarm_wed_min).state, id(alarm_wed_en).state, 4)) should_trigger = true;
+          if (check(id(alarm_thu_hour).state, id(alarm_thu_min).state, id(alarm_thu_en).state, 5)) should_trigger = true;
+          if (check(id(alarm_fri_hour).state, id(alarm_fri_min).state, id(alarm_fri_en).state, 6)) should_trigger = true;
+          if (check(id(alarm_sat_hour).state, id(alarm_sat_min).state, id(alarm_sat_en).state, 7)) should_trigger = true;
+          if (check(id(alarm_sun_hour).state, id(alarm_sun_min).state, id(alarm_sun_en).state, 1)) should_trigger = true;
+
+          if (should_trigger) {
+            id(alarm_start).execute();
+          }
+
+  # Start the alarm
+  - id: alarm_start
+    then:
+      - lambda: |-
+          id(alarm_active) = true;
+          id(buzzer_step) = 0;
+      - homeassistant.event:
+          event: esphome.alarm_triggered
+          data:
+            device_id: zigbee_alarm_clock
+      - script.execute: alarm_beep_loop
+
+  # Stop the alarm
+  - id: alarm_stop
+    then:
+      - lambda: |-
+          id(alarm_active) = false;
+          id(buzzer_step) = 0;
+      - script.stop: alarm_beep_loop
+      - output.turn_off: buzzer_pwm
+      - logger.log: "Alarm gestopt"
+
+  # Repeating beep pattern with fade-in volume
+  - id: alarm_beep_loop
+    mode: restart
+    then:
+      - while:
+          condition:
+            lambda: 'return id(alarm_active);'
+          then:
+            # Gradually increase volume (fade-in over first 30 seconds)
+            - lambda: |-
+                if (id(buzzer_step) < 10) {
+                  id(buzzer_step)++;
+                }
+                float volume = id(buzzer_step) * 0.1f;
+                id(buzzer_pwm).set_level(volume);
+            # Beep ON
+            - output.set_level:
+                id: buzzer_pwm
+                level: !lambda 'return id(buzzer_step) * 0.1f;'
+            - delay: 300ms
+            # Beep OFF
+            - output.turn_off: buzzer_pwm
+            - delay: 200ms
+            # Repeat beep
+            - output.set_level:
+                id: buzzer_pwm
+                level: !lambda 'return id(buzzer_step) * 0.1f;'
+            - delay: 300ms
+            - output.turn_off: buzzer_pwm
+            # Pause between pairs
+            - delay: 1200ms
+
+  # Calculate and update next alarm time string
+  - id: update_next_alarm
+    then:
+      - lambda: |-
+          if (!id(alarm_master).state) {
+            id(next_alarm_str) = std::string("UIT");
+            return;
+          }
+
+          auto now = id(homeassistant_time).now();
+          if (!now.is_valid()) {
+            id(next_alarm_str) = std::string("--:--");
+            return;
+          }
+
+          int current_dow = now.day_of_week; // 1=Sun
+          int current_minutes = now.hour * 60 + now.minute;
+
+          // Store alarm configs: {hour, min, enabled, dow (1=Sun)}
+          struct AlarmCfg { float h; float m; bool en; int dow; };
+          AlarmCfg alarms[] = {
+            {id(alarm_sun_hour).state, id(alarm_sun_min).state, id(alarm_sun_en).state, 1},
+            {id(alarm_mon_hour).state, id(alarm_mon_min).state, id(alarm_mon_en).state, 2},
+            {id(alarm_tue_hour).state, id(alarm_tue_min).state, id(alarm_tue_en).state, 3},
+            {id(alarm_wed_hour).state, id(alarm_wed_min).state, id(alarm_wed_en).state, 4},
+            {id(alarm_thu_hour).state, id(alarm_thu_min).state, id(alarm_thu_en).state, 5},
+            {id(alarm_fri_hour).state, id(alarm_fri_min).state, id(alarm_fri_en).state, 6},
+            {id(alarm_sat_hour).state, id(alarm_sat_min).state, id(alarm_sat_en).state, 7},
+          };
+
+          int best_minutes_ahead = 10080; // max 7 days
+          int best_h = -1, best_m = -1;
+
+          for (auto& a : alarms) {
+            if (!a.en) continue;
+            int alarm_minutes = (int)a.h * 60 + (int)a.m;
+            // Days ahead (0 = today)
+            int days_ahead = (a.dow - current_dow + 7) % 7;
+            int minutes_ahead = days_ahead * 1440 + alarm_minutes - current_minutes;
+            if (minutes_ahead <= 0) minutes_ahead += 7 * 1440;
+            if (minutes_ahead < best_minutes_ahead) {
+              best_minutes_ahead = minutes_ahead;
+              best_h = (int)a.h;
+              best_m = (int)a.m;
+            }
+          }
+
+          if (best_h >= 0) {
+            char buf[6];
+            snprintf(buf, sizeof(buf), "%02d:%02d", best_h, best_m);
+            id(next_alarm_str) = std::string(buf);
+          } else {
+            id(next_alarm_str) = std::string("geen");
+          }

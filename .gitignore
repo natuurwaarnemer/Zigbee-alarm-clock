@@ -1,0 +1,24 @@
+# ESPHome
+esphome/secrets.yaml
+esphome/.esphome/
+esphome/config/
+
+# PlatformIO
+platformio/.pio/
+platformio/.vscode/
+platformio/lib/
+platformio/include/secrets.h
+
+# 3D Models - keep the provided STL, ignore generated ones
+3d-models/*.stl
+!3d-models/case-v1.stl
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
