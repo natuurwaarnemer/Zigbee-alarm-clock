@@ -84,7 +84,7 @@ cards:
         name: Volgend Alarm
         icon: mdi:alarm-check
       - entity: binary_sensor.zigbee_wekker_wifi_verbonden
-        name: WiFi Verbonden
+        name: Verbinding Status  # WiFi (ESPHome) or Zigbee connection status
         icon: mdi:wifi
       - entity: sensor.zigbee_wekker_wifi_signaalsterkte
         name: WiFi Signaal

@@ -39,11 +39,8 @@ void setup() {
         Serial.println("[Display] WARNING: SSD1306 not found at 0x3C");
     }
 
-    // Initialize alarm module (loads NVS config, sets up PWM)
+    // Initialize alarm module (loads NVS config, sets up PWM, configures button)
     alarm_init();
-
-    // Configure button with internal pull-up
-    pinMode(BUTTON_PIN, INPUT_PULLUP);
 
     // Register Zigbee alarm config callback
     zigbee_set_alarm_config_callback(on_alarm_config_received);
